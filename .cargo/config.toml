@@ -1,0 +1,126 @@
+# Cargo Build Performance Configuration
+# Based on official Cargo Book: https://doc.rust-lang.org/cargo/guide/build-performance.html
+#
+# System: Linux x86_64, 4 cores, 15GB RAM, nightly toolchain
+# Last updated: 2026-11-24
+
+# ============================================================================
+# BUILD OPTIMIZATION - Reduce debug info (Cargo Book recommendation)
+# ============================================================================
+# "One of the most impactful ways to improve build times is to reduce debug info"
+# Trade-off: Slightly reduced debugging capability for much faster builds
+# Recommendation: Use [profile.debugging] when you need full debug info
+
+[profile.dev]
+# Line tables only (reduces debug info size by ~50%, minimal impact on debugging)
+debug = "line-tables-only"
+
+# Disable debug info for dependencies (huge build time savings)
+[profile.dev.package."*"]
+debug = false
+
+# Custom debugging profile with full debug info (use when needed: cargo build --profile=debugging)
+[profile.debugging]
+inherits = "dev"
+debug = true
+
+# ============================================================================
+# LINKER OPTIMIZATION - Alternative linker (Cargo Book strongly recommends)
+# ============================================================================
+# "Using an alternative linker can massively improve link times"
+# mold is fastest for Linux, lld is a good cross-platform alternative
+#
+# INSTALL INSTRUCTIONS:
+#   Ubuntu/Debian: sudo apt install mold
+#   Arch Linux:    sudo pacman -S mold
+#   From source:   https://github.com/rui314/mold
+#
+# Note: Uncomment the appropriate section below after installing linker
+
+# Option 1: mold linker (RECOMMENDED for Linux - fastest)
+# Uncomment after installing mold:
+# [target.x86_64-unknown-linux-gnu]
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+# Option 2: lld linker (good cross-platform alternative)
+# Uncomment after installing lld (part of LLVM/clang package):
+# [target.x86_64-unknown-linux-gnu]
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+# ============================================================================
+# PARALLEL FRONTEND (Nightly only - Cargo Book experimental feature)
+# ============================================================================
+# "The nightly version of Rust has experimental support for parallel compilation"
+# Trade-off: Requires nightly, may have bugs, can improve multi-core utilization
+# 
+# ENABLED: Project already uses nightly toolchain
+# Using 4 threads (matches available cores)
+
+[build]
+rustflags = ["-Z", "threads=4"]
+
+# ============================================================================
+# CODEGEN BACKEND - Cranelift (Nightly only, OPTIONAL)
+# ============================================================================
+# Cranelift provides faster compile times with potentially slower runtime for dev builds
+# 
+# INSTALL: rustup component add rustc-codegen-cranelift-preview --toolchain nightly
+#
+# Trade-offs:
+#   + Much faster compilation (can be 2-3x faster)
+#   - Slower runtime performance (dev builds only, not for release)
+#   - Limited platform support (x86_64 and aarch64 only)
+#   - Some features not supported
+#
+# To enable: Uncomment the line below in [profile.dev] section
+# (Commented by default - evaluate if the trade-offs are acceptable)
+
+# [profile.dev]
+# codegen-backend = "cranelift"
+
+# ============================================================================
+# CACHING - sccache (OPTIONAL but highly recommended)
+# ============================================================================
+# "Using sccache can accelerate repeated builds across clean builds"
+#
+# INSTALL INSTRUCTIONS:
+#   cargo install sccache
+#   OR: Download from https://github.com/mozilla/sccache/releases
+#
+# Uncomment after installing:
+# [build]
+# rustc-wrapper = "sccache"
+
+# ============================================================================
+# RESOURCE MANAGEMENT
+# ============================================================================
+# [build]
+# jobs = 4
+#
+# Note: Default is to use all cores. Only set if builds cause OOM.
+# With 15GB RAM and 4 cores, default should be fine.
+
+# ============================================================================
+# INCREMENTAL COMPILATION
+# ============================================================================
+# Incremental compilation is enabled by default for dev builds.
+# It's already optimal - no changes needed.
+
+# ============================================================================
+# VERIFICATION COMMANDS
+# ============================================================================
+# Check active configuration:
+#   cargo config get
+#   cargo config get profile.dev
+#   cargo config get target.x86_64-unknown-linux-gnu
+#
+# Measure build performance:
+#   cargo clean
+#   cargo build --timings
+#   # Opens HTML report showing build timeline
+#
+# Compare before/after:
+#   hyperfine "cargo clean && cargo build"
+#   # Or manual timing: time cargo build

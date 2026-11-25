@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Fail the push if tests fail (matches CI test job).
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+echo "==> pre-push: make test-all"
+make test-all
+
+echo "==> pre-push: ok"

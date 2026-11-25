@@ -1,0 +1,87 @@
+# Publish rustdoc to GitHub Pages on pushes to main.
+# Local equivalent: make doc  (or: cargo doc --no-deps --all-features --open)
+#
+# Repo setup (once): Settings → Pages → Build and deployment → Source: GitHub Actions
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  build:
+    name: Build docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install toolchain from rust-toolchain.toml
+        run: rustup show
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: cargo doc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps --all-features
+
+      # rustdoc lands under target/doc/<crate>/; redirect the site root there.
+      # .nojekyll keeps underscore-prefixed rustdoc assets from being ignored.
+      - name: Prepare Pages artifact
+        run: |
+          touch target/doc/.nojekyll
+          cat > target/doc/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <title>interplanetary-sdk</title>
+              <meta http-equiv="refresh" content="0; url=interplanetary_sdk/index.html">
+              <link rel="canonical" href="interplanetary_sdk/index.html">
+            </head>
+            <body>
+              <p><a href="interplanetary_sdk/index.html">interplanetary_sdk</a> documentation</p>
+            </body>
+          </html>
+          EOF
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/doc
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

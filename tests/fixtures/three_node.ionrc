@@ -1,0 +1,21 @@
+# Three-node DTN scenario: Earth-Relay-Mars
+# Hand-written fixture for interplanetary-sdk (not copied from ION-DTN)
+#
+# Node IDs:
+#   1 = Earth
+#   2 = Relay
+#   3 = Mars
+#
+# Timeline:
+#   0-100s: Earth can send to Relay (100 Mbps, 5s delay)
+#   50-150s: Relay can send to Mars (50 Mbps, 10s delay)
+#
+# This creates a store-and-forward scenario where bundles must wait at Relay.
+
+# Earth to Relay contact
+a contact +0 +100 1 2 100000000
+a range +0 +100 1 2 5
+
+# Relay to Mars contact (starts at +50s, overlaps with Earth-Relay)
+a contact +50 +150 2 3 50000000
+a range +50 +150 2 3 10

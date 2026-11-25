@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "profile": "REPLACE_WITH_PROFILE",
+  "claim": "REPLACE_WITH_NARROW_TESTABLE_CLAIM",
+  "source_revisions": [],
+  "requirement_ids": [],
+  "implementation_commit": null,
+  "features": [],
+  "validation": {
+    "kind": "not_run",
+    "commands": [],
+    "exit_codes": [],
+    "artifacts": []
+  },
+  "independent_review": {
+    "performed": false,
+    "reviewer": null,
+    "evidence": null
+  },
+  "known_exclusions": [],
+  "unresolved_gaps": [],
+  "approved_for_release_claim": false
+}

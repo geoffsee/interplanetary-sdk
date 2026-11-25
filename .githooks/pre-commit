@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Fail the commit on formatting or clippy issues (matches CI fmt + clippy jobs).
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+echo "==> pre-commit: make fmt-check"
+make fmt-check
+
+echo "==> pre-commit: make clippy"
+make clippy
+
+echo "==> pre-commit: ok"

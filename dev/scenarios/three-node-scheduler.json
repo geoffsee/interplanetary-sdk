@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "kind": "scheduler-only-abstract-envelope",
+  "not_a_bp_wire_fixture": true,
+  "time_unit": "nanoseconds",
+  "rate_unit": "bits_per_second",
+  "volume_unit": "octets",
+  "ticks_per_second": 1000000000,
+  "seed": 1,
+  "processing_delay_ns": 0,
+  "extra_overhead_bytes": 0,
+  "knowledge_model": "all contacts known; no downstream queue reservations",
+  "nodes": [
+    "earth",
+    "relay",
+    "mars"
+  ],
+  "contacts": [
+    {
+      "id": "C1",
+      "from": "earth",
+      "to": "relay",
+      "start_ns": 0,
+      "end_ns": 10000000000,
+      "rate_bps": 8000,
+      "owlt_ns": 4000000000,
+      "resource_group": "earth-relay"
+    },
+    {
+      "id": "C2",
+      "from": "relay",
+      "to": "mars",
+      "start_ns": 10000000000,
+      "end_ns": 20000000000,
+      "rate_bps": 8000,
+      "owlt_ns": 6000000000,
+      "resource_group": "relay-mars"
+    },
+    {
+      "id": "C3",
+      "from": "earth",
+      "to": "mars",
+      "start_ns": 0,
+      "end_ns": 20000000000,
+      "rate_bps": 1000,
+      "owlt_ns": 20000000000,
+      "resource_group": "earth-mars"
+    }
+  ],
+  "request": {
+    "source": "earth",
+    "destination": "mars",
+    "ready_ns": 0,
+    "charged_bytes": 1000,
+    "model_deadline_ns": 40000000000
+  },
+  "expected": {
+    "route": [
+      "C1",
+      "C2"
+    ],
+    "arrival_ns": 17000000000,
+    "direct_arrival_ns": 28000000000,
+    "relay_arrival_ns": 5000000000,
+    "deadline_16s_has_route": false
+  }
+}
