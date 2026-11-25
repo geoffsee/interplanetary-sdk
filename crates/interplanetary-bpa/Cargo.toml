@@ -1,0 +1,26 @@
+[package]
+name = "interplanetary-bpa"
+description = "Bundle Protocol Agent lifecycle (RFC 9171 §5)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+interplanetary-types.workspace = true
+interplanetary-bp.workspace = true
+ciborium.workspace = true
+zeroize = { workspace = true, optional = true }
+interplanetary-store.workspace = true
+interplanetary-contacts.workspace = true
+interplanetary-security = { workspace = true, optional = true }
+interplanetary-cla = { workspace = true, optional = true }
+
+[features]
+default = []
+bpsec-default = ["dep:interplanetary-security", "dep:zeroize"]
+tcpclv4-model = ["dep:interplanetary-cla"]
+test-fixtures = ["interplanetary-security?/test-fixtures"]

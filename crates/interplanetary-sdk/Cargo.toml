@@ -1,0 +1,81 @@
+[package]
+name = "interplanetary-sdk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Library for delay-tolerant networking (BPv7, TCPCLv4, TIPTOP)"
+keywords = ["dtn", "bundle-protocol", "BPv7", "space", "delay-tolerant", "interplanetary"]
+categories = ["aerospace", "network-programming", "science"]
+
+[dependencies]
+interplanetary-types = { workspace = true }
+interplanetary-bp = { workspace = true, optional = true }
+interplanetary-security = { workspace = true, optional = true }
+interplanetary-contacts = { workspace = true, optional = true }
+interplanetary-routing = { workspace = true, optional = true }
+interplanetary-store = { workspace = true, optional = true }
+interplanetary-cla = { workspace = true, optional = true }
+interplanetary-bpa = { workspace = true, optional = true }
+interplanetary-tcpcl = { workspace = true, optional = true }
+interplanetary-sim = { workspace = true, optional = true }
+interplanetary-tiptop = { workspace = true, optional = true }
+interplanetary-sdk-sync = { workspace = true, optional = true }
+interplanetary-sdk-async = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+ciborium.workspace = true
+hex.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+aes-gcm.workspace = true
+serde_json.workspace = true
+proptest.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+
+[features]
+default = ["bpv7", "sim-basic"]
+
+bpv7 = ["dep:interplanetary-bp"]
+bpsec-default = [
+    "bpv7",
+    "dep:interplanetary-security",
+    "interplanetary-bpa?/bpsec-default",
+    "interplanetary-sdk-sync?/bpsec-default",
+    "interplanetary-sdk-async?/bpsec-default",
+]
+sim-basic = [
+    "bpv7",
+    "dep:interplanetary-contacts",
+    "dep:interplanetary-routing",
+    "dep:interplanetary-store",
+    "dep:interplanetary-cla",
+    "dep:interplanetary-bpa",
+    "dep:interplanetary-sim",
+    "dep:interplanetary-sdk-sync",
+]
+tcpclv4-model = [
+    "bpv7",
+    "dep:interplanetary-tcpcl",
+    "interplanetary-cla?/tcpclv4-model",
+    "interplanetary-bpa?/tcpclv4-model",
+    "interplanetary-sdk-sync?/tcpclv4-model",
+    "interplanetary-sdk-async?/tcpclv4-model",
+]
+tiptop-experimental = ["sim-basic", "dep:interplanetary-tiptop"]
+test-fixtures = [
+    "interplanetary-security?/test-fixtures",
+    "interplanetary-bpa?/test-fixtures",
+    "interplanetary-sdk-sync?/test-fixtures",
+]
+async-adapter = ["sim-basic", "dep:interplanetary-sdk-async"]
+stable-full = ["bpv7", "bpsec-default", "sim-basic", "tcpclv4-model"]
+full = ["stable-full", "tiptop-experimental", "async-adapter"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

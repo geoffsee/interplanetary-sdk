@@ -1,0 +1,25 @@
+[package]
+name = "interplanetary-sdk-sync"
+description = "Synchronous multi-node scenario runner over the DTN kernel"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+interplanetary-types.workspace = true
+interplanetary-bp.workspace = true
+interplanetary-bpa.workspace = true
+interplanetary-routing.workspace = true
+interplanetary-contacts.workspace = true
+interplanetary-store.workspace = true
+interplanetary-sim.workspace = true
+
+[features]
+default = []
+bpsec-default = ["interplanetary-bpa/bpsec-default"]
+tcpclv4-model = ["interplanetary-bpa/tcpclv4-model"]
+test-fixtures = ["interplanetary-bpa/test-fixtures"]

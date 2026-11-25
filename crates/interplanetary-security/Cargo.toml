@@ -1,0 +1,29 @@
+[package]
+name = "interplanetary-security"
+description = "BPSec default security contexts (HMAC-SHA2, AES-GCM)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+interplanetary-types.workspace = true
+interplanetary-bp.workspace = true
+ciborium.workspace = true
+sha2.workspace = true
+hmac.workspace = true
+aes-gcm.workspace = true
+aes-kw.workspace = true
+typenum.workspace = true
+subtle.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+
+[features]
+default = ["bpsec-default"]
+bpsec-default = []
+test-fixtures = []

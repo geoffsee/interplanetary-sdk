@@ -1,106 +1,58 @@
-[package]
-name = "interplanetary-sdk"
-version = "0.0.1"
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+exclude = ["dev/fuzz"]
+default-members = ["crates/interplanetary-sdk"]
+
+[workspace.package]
 edition = "2024"
 rust-version = "1.99.1"
-authors = ["geoffsee"]
 license = "MIT OR Apache-2.0"
-description = "Library for delay-tolerant networking (BPv7,TCPCLv4,TIPTOP)"
+version = "0.0.1"
+authors = ["geoffsee"]
 repository = "https://github.com/geoffsee/interplanetary-sdk"
-keywords = ["dtn", "bundle-protocol", "BPv7", "space", "delay-tolerant", "interplanetary"]
-categories = ["aerospace", "network-programming", "science"]
 
-[lib]
-name = "interplanetary_sdk"
-path = "src/lib.rs"
-
-[dependencies]
-# Core CBOR encoding for BP
+[workspace.dependencies]
 ciborium = "0.2"
-# Cryptography for BPSec (pure Rust, reviewed crates) — enabled by `bpsec-default`
-sha2 = { version = "0.10", optional = true }
-hmac = { version = "0.12", optional = true }
-aes-gcm = { version = "0.10", optional = true }
-aes-kw = { version = "0.2", optional = true }
-typenum = { version = "1.17", optional = true }
-subtle = { version = "2.5", optional = true }
-# Zeroize key material on drop (RFC9173-128)
-zeroize = { version = "1.7", features = ["derive"], optional = true }
-# Serialization for configs
-serde = { version = "1.0.200", features = ["derive"], optional = true }
-
-[dev-dependencies]
+sha2 = "0.10"
+hmac = "0.12"
+aes-gcm = "0.10"
+aes-kw = "0.2"
+typenum = "1.17"
+subtle = "2.5"
+zeroize = { version = "1.7", features = ["derive"] }
+serde = { version = "1.0.200", features = ["derive"] }
 hex = "0.4"
 serde_json = "1.0"
-# Property testing: now available on Rust 1.99.1 (ADR 005 revised)
 proptest = "1.5"
 rand = "0.8"
 rand_chacha = "0.3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
 
-[features]
-default = ["bpv7", "sim-basic"]
-
-# Core profile features
-bpv7 = []
-bpsec-default = [
-    "bpv7",
-    "dep:sha2",
-    "dep:hmac",
-    "dep:aes-gcm",
-    "dep:aes-kw",
-    "dep:typenum",
-    "dep:subtle",
-    "dep:zeroize",
-]
-sim-basic = ["bpv7"]
-
-# Convergence layers
-tcpclv4-model = ["bpv7"]
-
-# Experimental features
-tiptop-experimental = ["sim-basic"]
-
-# Test and development features
-test-fixtures = []  # Exposes FixtureKeyProvider and allows skipping RFC 9758 security source validation for historical test vectors (test-only, NOT for production)
-
-# Complete stable profile
-stable-full = ["bpv7", "bpsec-default", "sim-basic", "tcpclv4-model"]
-
-# All features (including experimental)
-full = ["stable-full", "tiptop-experimental"]
-
-# ============================================================================
-# RELEASE PROFILE - Runtime Performance Optimization
-# ============================================================================
-# Following Cargo Book and Rust Performance Book recommendations
-# Trade-off: Longer compile time for maximum runtime performance
+interplanetary-types = { path = "crates/interplanetary-types" }
+interplanetary-bp = { path = "crates/interplanetary-bp" }
+interplanetary-security = { path = "crates/interplanetary-security" }
+interplanetary-contacts = { path = "crates/interplanetary-contacts" }
+interplanetary-routing = { path = "crates/interplanetary-routing" }
+interplanetary-store = { path = "crates/interplanetary-store" }
+interplanetary-cla = { path = "crates/interplanetary-cla" }
+interplanetary-bpa = { path = "crates/interplanetary-bpa" }
+interplanetary-tcpcl = { path = "crates/interplanetary-tcpcl" }
+interplanetary-sim = { path = "crates/interplanetary-sim" }
+interplanetary-tiptop = { path = "crates/interplanetary-tiptop" }
+interplanetary-sdk-sync = { path = "crates/interplanetary-sdk-sync" }
+interplanetary-sdk-async = { path = "crates/interplanetary-sdk-async" }
 
 [profile.release]
-opt-level = 3           # Maximum optimization
-lto = "thin"            # Thin LTO (good balance of compile time vs optimization)
-                        # Use "fat" for maximum optimization at cost of much longer builds
-codegen-units = 1       # Better optimization, slower compilation
-strip = "debuginfo"     # Remove debug info from binary (smaller size)
-# panic = "abort"       # Uncomment if unwinding not needed (smaller binary, faster)
-
-# ============================================================================
-# FAST RELEASE PROFILE - Faster compilation with good optimization
-# ============================================================================
-# Use with: cargo build --profile=release-fast
-# For when you need optimized builds but can't wait for full LTO
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"
 
 [profile.release-fast]
 inherits = "release"
 lto = false
-codegen-units = 16      # Faster parallel codegen
-
-# ============================================================================
-# BENCHMARK PROFILE
-# ============================================================================
+codegen-units = 16
 
 [profile.bench]
 inherits = "release"
-
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]

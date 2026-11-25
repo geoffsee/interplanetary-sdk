@@ -1,0 +1,13 @@
+[package]
+name = "interplanetary-contacts"
+description = "Contact plans shared by routing and the discrete-event engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+interplanetary-types.workspace = true

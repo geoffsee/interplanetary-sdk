@@ -2,11 +2,12 @@
 
 > Status: Pre-Alpha
 
-Rust library for delay-tolerant networking (DTN). It implements Bundle Protocol version 7 (BPv7), TCPCLv4 modeling, and TIPTOP IP/QUIC profiles (experimental). 
+Rust library for delay-tolerant networking (DTN). It implements Bundle Protocol version 7 (BPv7), TCPCLv4 modeling, and TIPTOP IP/QUIC profiles (experimental).
 
-BPA, BPSec, routing, and CLA logic currently live as a synchronous protocol kernel (temporary): each step is `(state, event, clock) → (state′, effects)`, with no sockets, TLS, or executor inside that path. I/O and async runtimes sit in adapters around the kernel. Feature gates separate the stable BPv7 profile from experimental modules.
+The protocol kernel is synchronous and deterministic: each step is `(state, event, clock) → (state′, effects)`, with no sockets, TLS, or executor inside that path. Domain crates under [`crates/`](crates/) own that shared logic. [`interplanetary-sdk-sync`](crates/interplanetary-sdk-sync/) runs it in-process. [`interplanetary-sdk-async`](crates/interplanetary-sdk-async/) drives the same kernel from Tokio. The published crate, [`interplanetary-sdk`](crates/interplanetary-sdk/), re-exports the domain crates behind the existing feature flags.
 
 1. [Scope](#scope)
+1. [Workspace](#workspace)
 1. [Getting Started](#getting-started)
 1. [Resources](#resources)
 1. [Communications](#communications)
@@ -23,6 +24,34 @@ BPA, BPSec, routing, and CLA logic currently live as a synchronous protocol kern
 * A discrete-event simulation engine with contact-aware routing (e.g. CGR)
 * TCPCLv4 protocol state-machine modeling over virtual streams
 * Experimental TIPTOP IP/QUIC modeling profiles (feature-gated, separately labeled)
+* A Tokio driver (`async-adapter`) that awaits the same synchronous scenario runner
+
+It does not fork the codec, BPA, or contact-graph router into a second async implementation.
+
+## Workspace
+
+The repository root is a virtual Cargo workspace (`resolver = "3"`). Depend on `interplanetary-sdk`. The other crates are `publish = false` and exist so the kernel, the sync runner, and the async runner compile separately.
+
+| Crate | Role |
+| --- | --- |
+| `interplanetary-types` | Identity, time, units, errors |
+| `interplanetary-bp` | BPv7 codec, blocks, CRC, fragmentation |
+| `interplanetary-security` | BPSec HMAC-SHA2 and AES-GCM |
+| `interplanetary-contacts` | Contact plans |
+| `interplanetary-routing` | Contact-graph and static routing |
+| `interplanetary-store` | Bounded in-memory bundle store |
+| `interplanetary-bpa` | Bundle Protocol Agent lifecycle |
+| `interplanetary-cla` | Peer connect scheduler (RFC 9174 reconnect backoff) |
+| `interplanetary-tcpcl` | TCPCLv4 session model over virtual streams |
+| `interplanetary-sim` | Discrete-event engine and ION contact-plan parser |
+| `interplanetary-tiptop` | Experimental IP/QUIC model |
+| `interplanetary-sdk-sync` | `Scenario`, the synchronous multi-node runner |
+| `interplanetary-sdk-async` | `AsyncSimulation`, Tokio handle over `Scenario` |
+| `interplanetary-sdk` | Facade. Feature flags select the crates above |
+
+`sim::Scenario` is the sync runner. With `async-adapter`, `async_adapter::AsyncSimulation` exposes `add_node`, `inject_bundle`, and `run` as async methods. Those methods run the sync kernel on a blocking thread. They do not open sockets.
+
+Reconnect backoff lives in `interplanetary-cla` (`PeerConnectScheduler`, `ConnectionManager`). The bundle agent and the TCPCL crate both use that port. The TCPCL crate keeps the session state machine and virtual streams.
 
 ## Getting Started
 
@@ -44,8 +73,9 @@ BPA, BPSec, routing, and CLA logic currently live as a synchronous protocol kern
 ```bash
 # https://rustup.rs/ — then from the repo root:
 rustup show          # installs nightly + components from rust-toolchain.toml
-cargo build
-cargo test
+cargo build          # default member: interplanetary-sdk
+cargo test           # facade tests, default features
+cargo test --workspace --all-features
 ```
 **Build and test**
 
@@ -60,9 +90,9 @@ make example
 # or: make example EXAMPLE=expiry_demo
 ```
 
-See [`examples/three_node.rs`](examples/three_node.rs) for the full scenario.
+See [`crates/interplanetary-sdk/examples/three_node.rs`](crates/interplanetary-sdk/examples/three_node.rs) for the full scenario.
 
-Other examples live under [`examples/`](examples/), including contact failure reroute and bundle expiry demos. Run them all with `make examples`.
+Other examples live under [`crates/interplanetary-sdk/examples/`](crates/interplanetary-sdk/examples/), including contact failure reroute and bundle expiry demos. Run them all with `make examples`.
 
 **Feature profiles**
 
@@ -73,8 +103,10 @@ Other examples live under [`examples/`](examples/), including contact failure re
 | `bpsec-default` | BPSec HMAC and AES-GCM default contexts |
 | `tcpclv4-model` | TCPCLv4 protocol state machine over virtual streams |
 | `tiptop-experimental` | Experimental IP/QUIC modeling (unstable) |
+| `async-adapter` | Tokio driver (`async_adapter::AsyncSimulation`) over the sync kernel |
+| `test-fixtures` | Deterministic BPSec test helpers (not for production) |
 | `stable-full` | Stable profile: BPv7 + BPSec + sim + TCPCL |
-| `full` | All features, including experimental |
+| `full` | `stable-full` + TIPTOP + `async-adapter` |
 
 ```bash
 make build FEATURES=stable-full
@@ -121,6 +153,36 @@ fn main() -> Result<()> {
 }
 ```
 
+With `async-adapter` (and `sim-basic`), the same contact plan can be driven from Tokio. `AsyncSimulation` calls `Scenario` on a blocking thread:
+
+```rust
+use interplanetary_sdk::async_adapter::AsyncSimulation;
+use interplanetary_sdk::sim::{Contact, ContactId, ContactPlan};
+use interplanetary_sdk::types::*;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let mut plan = ContactPlan::new();
+    plan.add_contact(Contact {
+        id: ContactId(1),
+        from_node: NodeId::ipn(0, 1),
+        to_node: NodeId::ipn(0, 2),
+        start: SimInstant::ZERO,
+        end: SimInstant::from_nanos(10_000_000_000),
+        rate: BitsPerSecond::from_kbps(8)?,
+        delay: SimDuration::from_secs(4),
+        resource_group: None,
+    });
+
+    let storage = Bytes::from_mib(1).unwrap();
+    let sim = AsyncSimulation::new(plan, storage);
+    sim.add_node(NodeId::ipn(0, 1), storage).await?;
+    sim.add_node(NodeId::ipn(0, 2), storage).await?;
+    sim.run().await?;
+    Ok(())
+}
+```
+
 ### Makefile
 
 Common targets (see `make help`):
@@ -128,7 +190,7 @@ Common targets (see `make help`):
 | Target | Description |
 | --- | --- |
 | `make build` | Build the library |
-| `make test` / `make test-all` | Run tests (default / all features) |
+| `make test` / `make test-all` | Facade tests (default features) / every workspace crate, all features |
 | `make check` | Type-check all targets |
 | `make fmt` / `make fmt-check` | Format / check formatting |
 | `make clippy` | Lint with clippy (`-D warnings`) |

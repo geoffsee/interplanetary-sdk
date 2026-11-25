@@ -360,7 +360,101 @@ dependencies = [
 ]
 
 [[package]]
+name = "interplanetary-bp"
+version = "0.0.1"
+dependencies = [
+ "ciborium",
+ "interplanetary-types",
+]
+
+[[package]]
+name = "interplanetary-bpa"
+version = "0.0.1"
+dependencies = [
+ "ciborium",
+ "interplanetary-bp",
+ "interplanetary-cla",
+ "interplanetary-contacts",
+ "interplanetary-security",
+ "interplanetary-store",
+ "interplanetary-types",
+ "zeroize",
+]
+
+[[package]]
+name = "interplanetary-cla"
+version = "0.0.1"
+
+[[package]]
+name = "interplanetary-contacts"
+version = "0.0.1"
+dependencies = [
+ "interplanetary-types",
+]
+
+[[package]]
+name = "interplanetary-routing"
+version = "0.0.1"
+dependencies = [
+ "interplanetary-contacts",
+ "interplanetary-types",
+]
+
+[[package]]
 name = "interplanetary-sdk"
+version = "0.0.1"
+dependencies = [
+ "aes-gcm",
+ "ciborium",
+ "hex",
+ "hmac",
+ "interplanetary-bp",
+ "interplanetary-bpa",
+ "interplanetary-cla",
+ "interplanetary-contacts",
+ "interplanetary-routing",
+ "interplanetary-sdk-async",
+ "interplanetary-sdk-sync",
+ "interplanetary-security",
+ "interplanetary-sim",
+ "interplanetary-store",
+ "interplanetary-tcpcl",
+ "interplanetary-tiptop",
+ "interplanetary-types",
+ "proptest",
+ "rand 0.8.8",
+ "rand_chacha",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "interplanetary-sdk-async"
+version = "0.0.1"
+dependencies = [
+ "interplanetary-bp",
+ "interplanetary-contacts",
+ "interplanetary-sdk-sync",
+ "interplanetary-types",
+ "tokio",
+]
+
+[[package]]
+name = "interplanetary-sdk-sync"
+version = "0.0.1"
+dependencies = [
+ "interplanetary-bp",
+ "interplanetary-bpa",
+ "interplanetary-contacts",
+ "interplanetary-routing",
+ "interplanetary-sim",
+ "interplanetary-store",
+ "interplanetary-types",
+]
+
+[[package]]
+name = "interplanetary-security"
 version = "0.0.1"
 dependencies = [
  "aes-gcm",
@@ -368,16 +462,48 @@ dependencies = [
  "ciborium",
  "hex",
  "hmac",
- "proptest",
- "rand 0.8.8",
- "rand_chacha",
- "serde",
- "serde_json",
+ "interplanetary-bp",
+ "interplanetary-types",
  "sha2",
  "subtle",
  "typenum",
- "zeroize",
 ]
+
+[[package]]
+name = "interplanetary-sim"
+version = "0.0.1"
+dependencies = [
+ "interplanetary-bpa",
+ "interplanetary-contacts",
+ "interplanetary-types",
+]
+
+[[package]]
+name = "interplanetary-store"
+version = "0.0.1"
+dependencies = [
+ "interplanetary-bp",
+ "interplanetary-types",
+]
+
+[[package]]
+name = "interplanetary-tcpcl"
+version = "0.0.1"
+dependencies = [
+ "interplanetary-cla",
+ "interplanetary-types",
+]
+
+[[package]]
+name = "interplanetary-tiptop"
+version = "0.0.1"
+dependencies = [
+ "interplanetary-types",
+]
+
+[[package]]
+name = "interplanetary-types"
+version = "0.0.1"
 
 [[package]]
 name = "itoa"
@@ -423,6 +549,12 @@ name = "opaque-debug"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
+
+[[package]]
+name = "pin-project-lite"
+version = "0.2.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c938015719552d665fd0553b90d96cd7ff58e83e4c061ca99e6bb78865a72752"
 
 [[package]]
 name = "polyval"
@@ -683,6 +815,27 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys",
+]
+
+[[package]]
+name = "tokio"
+version = "1.54.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
+dependencies = [
+ "pin-project-lite",
+ "tokio-macros",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "2.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78773a2a397f451582ce068015985c33193cf6dea8b74d2a639fe457b2f07b0e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
 ]
 
 [[package]]

@@ -1,0 +1,18 @@
+[package]
+name = "interplanetary-tcpcl"
+description = "TCPCLv4 session model over virtual streams (RFC 9174)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+interplanetary-types.workspace = true
+interplanetary-cla.workspace = true
+
+[features]
+default = ["tcpclv4-model"]
+tcpclv4-model = ["interplanetary-cla/tcpclv4-model"]

@@ -1,0 +1,17 @@
+[package]
+name = "interplanetary-tiptop"
+description = "Experimental TIPTOP IP/QUIC models"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+interplanetary-types.workspace = true
+
+[features]
+default = ["tiptop-experimental"]
+tiptop-experimental = []

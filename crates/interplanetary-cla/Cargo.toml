@@ -1,0 +1,14 @@
+[package]
+name = "interplanetary-cla"
+description = "Convergence-layer port: peer connect scheduler shared by sync and async runtimes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+default = []
+tcpclv4-model = []

@@ -11,7 +11,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 
 [dependencies.interplanetary-sdk]
-path = ".."
+path = "../../crates/interplanetary-sdk"
 
 [[bin]]
 name = "fuzz_target_1"
