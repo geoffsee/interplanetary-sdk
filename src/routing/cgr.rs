@@ -70,7 +70,7 @@ impl Eq for SearchNode {}
 
 /// Earliest-arrival contact-graph router (approximation, not full ION CGR).
 ///
-/// Searches the [`ContactPlan`](crate::sim::ContactPlan) for a feasible path
+/// Searches the [`ContactPlan`] for a feasible path
 /// under hop and volume constraints. Prefer this for scheduler-style what-if
 /// analysis; use [`crate::sim::Scenario`] when you need inject → deliver.
 ///

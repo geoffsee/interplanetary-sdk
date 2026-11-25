@@ -235,7 +235,7 @@ pub struct ConnectionRequest {
 ///
 /// Admits bundles into bounded storage, applies forwarding/delivery policy,
 /// and emits CLA transmission / status-report side effects. Construct with
-/// [`BpaConfig`] + [`StorageManager`](crate::sim::StorageManager).
+/// [`BpaConfig`] + [`StorageManager`].
 ///
 /// # Examples
 ///

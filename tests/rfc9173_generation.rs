@@ -11,15 +11,18 @@ use interplanetary_sdk::{
     security::{self, AesGcmVariant, HmacKeyLengthPolicy, HmacVariant, bib},
     types::*,
 };
-use std::fs;
+
+const RFC9173_TEST_VECTORS: &str = include_str!("fixtures/rfc9173_test_vectors.json");
+
+fn load_vectors() -> serde_json::Value {
+    serde_json::from_str(RFC9173_TEST_VECTORS).expect("RFC 9173 test vectors JSON")
+}
 
 #[test]
 fn test_a1_generate_bundle_with_bib() {
     // Load RFC test vectors
     // NOTE: Uses Rfc9173AppendixAVectors policy - RFC A.1 uses 16-byte key violating §3.5
-    let vectors: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string("spec/rfc9173_test_vectors.json").unwrap())
-            .unwrap();
+    let vectors = load_vectors();
 
     let a1 = &vectors["vectors"][0];
     assert_eq!(a1["section"], "A.1.3.1");
@@ -119,9 +122,7 @@ fn test_a1_generate_bundle_with_bib() {
 #[test]
 fn test_a2_generate_bundle_with_bcb() {
     // Load RFC test vectors
-    let vectors: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string("spec/rfc9173_test_vectors.json").unwrap())
-            .unwrap();
+    let vectors = load_vectors();
 
     let a2 = &vectors["vectors"][1];
     assert_eq!(a2["section"], "A.2.3.1");
@@ -240,9 +241,7 @@ fn test_a2_generate_bundle_with_bcb() {
 fn test_a3_generate_multi_source_security() {
     // Load RFC test vectors
     // NOTE: Uses Rfc9173AppendixAVectors policy - RFC A.3 uses 16-byte key violating §3.5
-    let vectors: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string("spec/rfc9173_test_vectors.json").unwrap())
-            .unwrap();
+    let vectors = load_vectors();
 
     let a3 = &vectors["vectors"][2];
     assert_eq!(a3["section"], "A.3");

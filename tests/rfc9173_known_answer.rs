@@ -8,16 +8,19 @@
 #![cfg(all(feature = "bpsec-default", feature = "test-fixtures"))]
 
 use interplanetary_sdk::bp::BundleCodec;
-use std::fs;
+
+const RFC9173_TEST_VECTORS: &str = include_str!("fixtures/rfc9173_test_vectors.json");
+
+fn load_vectors() -> serde_json::Value {
+    serde_json::from_str(RFC9173_TEST_VECTORS).expect("RFC 9173 test vectors JSON")
+}
 
 #[test]
 fn test_a1_simple_integrity_hmac() {
     // RFC 9173 A.1.3.1 (lines 1728-1778): BIB with HMAC-SHA2
     // Test HMAC-SHA-512 signature computation against known answer
 
-    let vectors: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string("spec/rfc9173_test_vectors.json").unwrap())
-            .unwrap();
+    let vectors = load_vectors();
 
     let a1 = &vectors["vectors"][0];
     assert_eq!(a1["section"], "A.1.3.1");
@@ -49,9 +52,7 @@ fn test_a1_simple_integrity_hmac() {
 fn test_a2_simple_confidentiality_aesgcm() {
     // RFC 9173 A.2.3.1 (lines 1897-1947): BCB with AES-GCM
 
-    let vectors: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string("spec/rfc9173_test_vectors.json").unwrap())
-            .unwrap();
+    let vectors = load_vectors();
 
     let a2 = &vectors["vectors"][1];
     assert_eq!(a2["section"], "A.2.3.1");
@@ -133,9 +134,7 @@ fn test_a2_simple_confidentiality_aesgcm() {
 fn test_a3_multi_source_security() {
     // RFC 9173 A.3 (lines 1990-2290): BIB + BCB from multiple sources
 
-    let vectors: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string("spec/rfc9173_test_vectors.json").unwrap())
-            .unwrap();
+    let vectors = load_vectors();
 
     let a3 = &vectors["vectors"][2];
     assert_eq!(a3["section"], "A.3");
@@ -215,9 +214,7 @@ fn test_a4_full_scope_historical() {
     // HISTORICAL FIXTURE ONLY - Erratum 7002: multi-target BCB shares IV
     // This test verifies we can decode the example but documents it's not a generation template
 
-    let vectors: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string("spec/rfc9173_test_vectors.json").unwrap())
-            .unwrap();
+    let vectors = load_vectors();
 
     let a4 = &vectors["vectors"][3];
     assert_eq!(a4["section"], "A.4");
