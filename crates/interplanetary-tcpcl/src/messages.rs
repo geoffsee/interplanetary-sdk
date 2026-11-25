@@ -450,6 +450,142 @@ impl Message {
             Message::MessageReject { .. } => Self::TYPE_MSG_REJECT,
         }
     }
+
+    /// Pull one TCPCL message from the front of `bytes`.
+    ///
+    /// `Ok(None)` means the buffer does not yet hold a complete message.
+    /// [`Message::SessionTerm`] is the 3-octet RFC 9174 Figure 27 header.
+    /// A diagnostic string appended by [`Message::encode`] is not part of that frame.
+    pub fn decode_frame(bytes: &[u8]) -> Result<Option<(Self, usize)>, String> {
+        if bytes.is_empty() {
+            return Ok(None);
+        }
+        let consumed = match bytes[0] {
+            Self::TYPE_KEEPALIVE => Some(1),
+            Self::TYPE_MSG_REJECT => (bytes.len() >= 3).then_some(3),
+            Self::TYPE_SESS_TERM => (bytes.len() >= 3).then_some(3),
+            Self::TYPE_XFER_REFUSE => (bytes.len() >= 10).then_some(10),
+            Self::TYPE_XFER_ACK => (bytes.len() >= 18).then_some(18),
+            Self::TYPE_SESS_INIT => sess_init_len(bytes)?,
+            Self::TYPE_XFER_SEGMENT => segment_len(bytes)?,
+            other => {
+                return Err(format!("unknown TCPCL message type {other:#04x}"));
+            }
+        };
+        let Some(consumed) = consumed else {
+            return Ok(None);
+        };
+        let message = decode_message(&bytes[..consumed])?;
+        Ok(Some((message, consumed)))
+    }
+}
+
+const MAX_FRAME: usize = 16 * 1024 * 1024;
+
+fn sess_init_len(bytes: &[u8]) -> Result<Option<usize>, String> {
+    if bytes.len() < 25 {
+        return Ok(None);
+    }
+    let mut offset = 1 + 2 + 8 + 8;
+    let node_len = u16::from_be_bytes([bytes[offset], bytes[offset + 1]]) as usize;
+    offset += 2;
+    if bytes.len() < offset + node_len + 4 {
+        return Ok(None);
+    }
+    if node_len > 0 && std::str::from_utf8(&bytes[offset..offset + node_len]).is_err() {
+        return Err("Node ID is not valid UTF-8".to_string());
+    }
+    offset += node_len;
+    let ext_len = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+    if ext_len > MAX_FRAME {
+        return Err("SESS_INIT extensions too large".to_string());
+    }
+    offset += 4;
+    if bytes.len() < offset + ext_len {
+        return Ok(None);
+    }
+    Ok(Some(offset + ext_len))
+}
+
+fn segment_len(bytes: &[u8]) -> Result<Option<usize>, String> {
+    if bytes.len() < 14 {
+        return Ok(None);
+    }
+    let mut offset = 1 + 1 + 8;
+    let ext_len = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+    if ext_len > MAX_FRAME {
+        return Err("XFER_SEGMENT extensions too large".to_string());
+    }
+    offset += 4;
+    if bytes.len() < offset + ext_len + 8 {
+        return Ok(None);
+    }
+    offset += ext_len;
+    let data_len = u64::from_be_bytes(bytes[offset..offset + 8].try_into().unwrap());
+    if data_len > MAX_FRAME as u64 {
+        return Err("XFER_SEGMENT data too large".to_string());
+    }
+    offset += 8;
+    let data_len = data_len as usize;
+    if bytes.len() < offset + data_len {
+        return Ok(None);
+    }
+    Ok(Some(offset + data_len))
+}
+
+fn decode_message(bytes: &[u8]) -> Result<Message, String> {
+    match bytes[0] {
+        Message::TYPE_KEEPALIVE => Ok(Message::Keepalive),
+        Message::TYPE_MSG_REJECT => Ok(Message::MessageReject {
+            reason_code: bytes[1],
+            rejected_message_header: bytes[2],
+        }),
+        Message::TYPE_SESS_TERM => Ok(Message::SessionTerm {
+            flags: bytes[1],
+            reason_code: bytes[2],
+            message: None,
+        }),
+        Message::TYPE_XFER_REFUSE => Ok(Message::TransferRefuse {
+            reason_code: bytes[1],
+            transfer_id: u64::from_be_bytes(bytes[2..10].try_into().unwrap()),
+        }),
+        Message::TYPE_XFER_ACK => Ok(Message::TransferAck {
+            flags: bytes[1],
+            transfer_id: u64::from_be_bytes(bytes[2..10].try_into().unwrap()),
+            acked_length: u64::from_be_bytes(bytes[10..18].try_into().unwrap()),
+        }),
+        Message::TYPE_SESS_INIT => Message::decode_sess_init(bytes),
+        Message::TYPE_XFER_SEGMENT => {
+            let mut offset = 1;
+            let flags = bytes[offset];
+            offset += 1;
+            let transfer_id = u64::from_be_bytes(bytes[offset..offset + 8].try_into().unwrap());
+            offset += 8;
+            let ext_len =
+                u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+            offset += 4;
+            let ext_bytes = &bytes[offset..offset + ext_len];
+            offset += ext_len;
+            let mut extensions = Vec::new();
+            let mut ext_offset = 0;
+            while ext_offset < ext_bytes.len() {
+                let (ext, consumed) = ExtensionItem::decode(&ext_bytes[ext_offset..])?;
+                extensions.push(ext);
+                ext_offset += consumed;
+            }
+            let data_len =
+                u64::from_be_bytes(bytes[offset..offset + 8].try_into().unwrap()) as usize;
+            offset += 8;
+            let data = bytes[offset..offset + data_len].to_vec();
+            Ok(Message::TransferSegment {
+                flags,
+                transfer_id,
+                extensions,
+                data,
+            })
+        }
+        other => Err(format!("unknown TCPCL message type {other:#04x}")),
+    }
 }
 
 /// Transfer flags per RFC 9174 §6.2
@@ -663,5 +799,28 @@ mod tests {
         assert_eq!(encoded[0], Message::TYPE_MSG_REJECT);
         assert_eq!(encoded[1], reject_reason::UNSUPPORTED);
         assert_eq!(encoded[2], Message::TYPE_XFER_SEGMENT);
+    }
+
+    #[test]
+    fn test_decode_frame_split_segment() {
+        let msg = Message::TransferSegment {
+            flags: transfer_flags::START | transfer_flags::END,
+            transfer_id: 7,
+            extensions: Vec::new(),
+            data: b"bundle".to_vec(),
+        };
+        let encoded = msg.encode();
+        assert!(Message::decode_frame(&encoded[..4]).unwrap().is_none());
+        let (decoded, n) = Message::decode_frame(&encoded).unwrap().unwrap();
+        assert_eq!(n, encoded.len());
+        match decoded {
+            Message::TransferSegment {
+                data, transfer_id, ..
+            } => {
+                assert_eq!(transfer_id, 7);
+                assert_eq!(data, b"bundle");
+            }
+            other => panic!("unexpected {other:?}"),
+        }
     }
 }

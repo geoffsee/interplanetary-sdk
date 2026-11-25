@@ -21,6 +21,7 @@ Index of project documentation under `dev/docs/`.
 * [Cargo Configuration Directory](internal/environment.md)
 * [Fuzzing Results](internal/fuzzing-results.md)
 * [Fuzzing Status](internal/fuzzing-status.md)
+* [Live node](internal/live-node.md)
 * [Task 2 Demotion Quality: Spot Check of 5 Covered Obligations](internal/obligation-spot-check.md)
 * [RFC 9171 Implementation Gaps - Detailed Analysis](internal/rfc9171-gaps-detailed.md)
 * [Routing Dominance Analysis for CgrApproxV1](internal/routing_dominance.md)

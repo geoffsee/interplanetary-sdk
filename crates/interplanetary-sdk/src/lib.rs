@@ -6,7 +6,8 @@
 //! The protocol kernel is synchronous and deterministic: each step is
 //! `(state, event, clock) → (state′, effects)` with no sockets, TLS, or executor
 //! inside that path. Domain crates own that kernel. [`sim`] is the synchronous
-//! runner. [`async_adapter`] drives the same kernel from Tokio.
+//! runner. [`async_adapter`] drives the same kernel from Tokio. [`live`] binds
+//! TCP, UDP, and LTP sockets and calls the kernel with wall-clock time.
 //!
 //! # Features
 //!
@@ -19,6 +20,7 @@
 //! | `tiptop-experimental` | no | Experimental IP/QUIC modeling (unstable) |
 //! | `test-fixtures` | no | Deterministic test-vector helpers (not for production) |
 //! | `async-adapter` | no | Tokio driver over the synchronous kernel |
+//! | `live-node` | no | TCP, UDP, and LTP sockets around the same kernel |
 //! | `stable-full` | meta | `bpv7` + `bpsec-default` + `sim-basic` + `tcpclv4-model` |
 //! | `full` | meta | `stable-full` + `tiptop-experimental` + `async-adapter` |
 //!
@@ -39,6 +41,7 @@
 //! - [`tcpcl`] — TCPCLv4 virtual-stream model (`tcpclv4-model`)
 //! - [`tiptop`] — experimental IP/QUIC (`tiptop-experimental`)
 //! - [`async_adapter`] — Tokio driver (`async-adapter`)
+//! - [`live`] — TCP, UDP, and LTP sockets (`live-node`)
 //!
 //! # Examples
 //!
@@ -180,6 +183,13 @@ pub mod async_adapter {
     pub use interplanetary_sdk_async::*;
 }
 
+#[cfg(feature = "live-node")]
+#[cfg_attr(docsrs, doc(cfg(feature = "live-node")))]
+pub mod live {
+    //! Live node: TCPCLv4, UDP datagrams, and LTP over UDP.
+    pub use interplanetary_node::*;
+}
+
 pub use types::{
     BitsPerSecond, BundleId, Bytes, CreationTimestamp, DtnTimeMs, EndpointId, Error, NodeId,
     Result, SimDuration, SimInstant,
@@ -205,6 +215,8 @@ pub struct Capabilities {
     pub tiptop_experimental: bool,
     /// Tokio driver (`async-adapter`)
     pub async_adapter: bool,
+    /// Live TCP / UDP / LTP node (`live-node`)
+    pub live_node: bool,
 }
 
 impl Capabilities {
@@ -217,6 +229,7 @@ impl Capabilities {
             tcpclv4: cfg!(feature = "tcpclv4-model"),
             tiptop_experimental: cfg!(feature = "tiptop-experimental"),
             async_adapter: cfg!(feature = "async-adapter"),
+            live_node: cfg!(feature = "live-node"),
         }
     }
 }

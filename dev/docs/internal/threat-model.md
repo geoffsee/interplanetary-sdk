@@ -16,9 +16,18 @@ This threat model analyzes the Interplanetary SDK, a pure-Rust library for delay
 **What this is NOT:**
 - Flight-qualified spacecraft software
 - Operational custody service with durability guarantees
-- Real TCP/QUIC stack
+- A production QUIC stack (TIPTOP remains an experimental model)
 - Network-wide key distribution system
 - Production deployment without additional hardening
+
+**Live node (2026-11-24).** `interplanetary-node` does open TCP and UDP sockets. That does not retire the limits above. The live runtime is documented in [live-node.md](live-node.md). Additions to this model:
+
+- TCPCLv4 mutual TLS is terminated in the node, after the cleartext contact header. The active side is the TLS client. Node-id checks use a URI subjectAltName or `id-on-bundleEID` (OID `1.3.6.1.5.5.7.8.11`). There is no ALPN id in RFC 9174, and none is sent.
+- `InsecurePlaintext` is rejected unless the TCP listen address and every dialed TCP peer are loopback.
+- UDP datagrams and LTP segments are not encrypted. BPSec is the optional payload protection. It is off unless the node is built with the `bpsec` feature and `NodeConfig.bpsec` sets a non-zero IV counter.
+- LTP is a red-part subset. It has no retransmission timer, so a lost report is not retried on its own.
+- The bundle store is in memory. Restart drops bundles and any BPSec counter held only in that process.
+- An independent review is still required before a node is exposed to untrusted peers. Loopback tests are not that review.
 
 ## Trust Boundaries
 
@@ -391,7 +400,7 @@ The following are explicitly outside this threat model:
 - Protection against all side channels
 - Replay attack prevention (application responsibility)
 - Key management or distribution
-- Real-world TCP/TLS security (virtual models only)
+- Real-world TCP/TLS security beyond the live-node handshake described above (certificate lifecycle, revocation, and a production review are still out of scope)
 - Independent third-party security audit (W11 self-review disclosed as non-independent)
 - Flight or mission qualification
 
@@ -416,8 +425,8 @@ When deploying this library in a security-sensitive context:
 3. **Implement replay detection** at application layer if required
 4. **Monitor for advisories** on cryptographic dependencies
 5. **Perform independent security review** before production use
-6. **Use TLS/DTLS for real transport** when implementing socket adapter
-7. **Establish key management** separately (out of scope for this library)
+6. **Use `TlsMode::Mutual` for any TCP peer that is not loopback.** UDP and LTP still need BPSec or another payload protection. `InsecurePlaintext` cannot be pointed at a public address.
+7. **Establish key management** separately (out of scope for this library). Do not restart a node on an AES-GCM counter that was already used.
 8. **Test with adversarial inputs** before exposure to untrusted peers
 
 ## Review and Update

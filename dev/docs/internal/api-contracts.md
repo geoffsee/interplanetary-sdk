@@ -162,6 +162,10 @@ impl DtnTimeMs {
     
     pub fn from_unix_timestamp(unix_secs: i64) -> Result<Self>;
     pub fn to_unix_timestamp(&self) -> i64;
+
+    /// Convert a caller-supplied SystemTime. Does not read the clock.
+    /// Rejects instants before the Unix epoch and before 2000-01-01 UTC.
+    pub fn from_system_time(time: SystemTime) -> Result<Self>;
     
     pub fn from_sim_instant(instant: SimInstant, epoch_map: &EpochMapping) -> Result<Self>;
     
@@ -720,6 +724,47 @@ impl AsyncSimulation {
 - Commands via bounded channel (backpressure)
 - Events streamed via async channel
 - Can recover inner Simulation on shutdown
+
+---
+
+## Live Node (`live-node`)
+
+The socket runtime is `interplanetary_sdk::live` when the `live-node` feature is on. Full behavior, limits, and the example command are in [live-node.md](live-node.md).
+
+```rust
+pub enum Transport {
+    Tcp { addr: SocketAddr, dial: bool, server_name: Option<String> },
+    Udp { addr: SocketAddr },
+    Ltp { addr: SocketAddr },
+}
+
+pub enum TlsMode {
+    Mutual { ca_pem: Vec<u8>, cert_pem: Vec<u8>, key_pem: Vec<u8> },
+    InsecurePlaintext,
+}
+
+impl Node {
+    pub async fn bind(config: NodeConfig) -> Result<Self>;
+    pub async fn send(&self, destination: EndpointId, payload: Vec<u8>, lifetime_ms: u64) -> Result<BundleId>;
+    pub async fn recv(&mut self) -> Result<DeliveredBundle>;
+    pub async fn shutdown(self) -> Result<()>;
+}
+```
+
+**Invariants:**
+
+- At least one listen address is set. `InsecurePlaintext` refuses a non-loopback TCP listen or dial address.
+- `send` returns after admission, not after peer acknowledgement.
+- A bundle is transmitted on the link whose node id equals the destination endpoint's node id.
+- UDP carries one encoded bundle per datagram. LTP carries one segment per datagram, client service id 1.
+- The kernel crates gain no socket or clock dependency from this feature.
+- `live-node` does not enable BPSec. The node `bpsec` feature adds `NodeConfig.bpsec`. A zero IV counter is rejected unless `allow_zero_iv_counter` is set.
+
+Kernel helpers used only by this runtime:
+
+- `BundleAgent::take_cla_transmissions_for(node)` removes queued transmissions for that destination node.
+- `BundleAgent::take_delivered_adus()` removes bundles delivered to the local application since the last call.
+- `Message::decode_frame` returns one TCPCL message, or `Ok(None)` when the buffer is short. `SESS_TERM` consumes 3 octets.
 
 ---
 

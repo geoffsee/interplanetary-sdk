@@ -1,0 +1,32 @@
+[package]
+name = "interplanetary-node"
+description = "Live Bundle Protocol node over TCPCLv4, UDP, and LTP"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+interplanetary-types.workspace = true
+interplanetary-bp.workspace = true
+interplanetary-bpa = { workspace = true, features = ["tcpclv4-model"] }
+interplanetary-store.workspace = true
+interplanetary-tcpcl.workspace = true
+interplanetary-cla.workspace = true
+interplanetary-ltp.workspace = true
+tokio = { workspace = true, features = ["net", "time", "rt", "macros", "sync", "io-util"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+tokio-rustls = "0.26"
+rustls-pemfile = "2"
+x509-parser = "0.16"
+
+[features]
+default = []
+bpsec = ["interplanetary-bpa/bpsec-default"]
+
+[dev-dependencies]
+rcgen = "0.13"
+tokio = { workspace = true, features = ["net", "time", "rt-multi-thread", "macros", "sync", "io-util"] }

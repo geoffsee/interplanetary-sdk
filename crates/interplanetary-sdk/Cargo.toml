@@ -24,9 +24,11 @@ interplanetary-sim = { workspace = true, optional = true }
 interplanetary-tiptop = { workspace = true, optional = true }
 interplanetary-sdk-sync = { workspace = true, optional = true }
 interplanetary-sdk-async = { workspace = true, optional = true }
+interplanetary-node = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 ciborium.workspace = true
 hex.workspace = true
 hmac.workspace = true
@@ -47,6 +49,7 @@ bpsec-default = [
     "interplanetary-bpa?/bpsec-default",
     "interplanetary-sdk-sync?/bpsec-default",
     "interplanetary-sdk-async?/bpsec-default",
+    "interplanetary-node?/bpsec",
 ]
 sim-basic = [
     "bpv7",
@@ -73,8 +76,13 @@ test-fixtures = [
     "interplanetary-sdk-sync?/test-fixtures",
 ]
 async-adapter = ["sim-basic", "dep:interplanetary-sdk-async"]
+live-node = ["bpv7", "tcpclv4-model", "dep:interplanetary-node"]
 stable-full = ["bpv7", "bpsec-default", "sim-basic", "tcpclv4-model"]
 full = ["stable-full", "tiptop-experimental", "async-adapter"]
+
+[[example]]
+name = "live_exchange"
+required-features = ["live-node"]
 
 [package.metadata.docs.rs]
 all-features = true

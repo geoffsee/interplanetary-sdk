@@ -42,6 +42,8 @@ interplanetary-sim = { path = "crates/interplanetary-sim" }
 interplanetary-tiptop = { path = "crates/interplanetary-tiptop" }
 interplanetary-sdk-sync = { path = "crates/interplanetary-sdk-sync" }
 interplanetary-sdk-async = { path = "crates/interplanetary-sdk-async" }
+interplanetary-ltp = { path = "crates/interplanetary-ltp" }
+interplanetary-node = { path = "crates/interplanetary-node" }
 
 [profile.release]
 opt-level = 3

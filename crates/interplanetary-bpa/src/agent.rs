@@ -2016,6 +2016,26 @@ impl BundleAgent {
         &self.cla_tx_queue
     }
 
+    /// Remove and return queued transmissions for one next-hop node.
+    pub fn take_cla_transmissions_for(&mut self, node: &NodeId) -> Vec<ClaTransmission> {
+        let mut taken = Vec::new();
+        let mut kept = VecDeque::new();
+        while let Some(item) = self.cla_tx_queue.pop_front() {
+            if &item.destination_node == node {
+                taken.push(item);
+            } else {
+                kept.push_back(item);
+            }
+        }
+        self.cla_tx_queue = kept;
+        taken
+    }
+
+    /// Take bundles delivered to the local application since the last call.
+    pub fn take_delivered_adus(&mut self) -> Vec<Bundle> {
+        std::mem::take(&mut self.delivered_adus)
+    }
+
     /// Get delivered ADUs (observable output)
     pub fn delivered_adus(&self) -> &[Bundle] {
         &self.delivered_adus

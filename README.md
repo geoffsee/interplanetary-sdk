@@ -17,7 +17,7 @@ The protocol kernel is synchronous and deterministic: each step is `(state, even
 
 ## Scope
 
-`interplanetary-sdk` is intended to provide a DTN modeling library. It implements BPv7, BPSec defaults, discrete-event simulation, contact-plan routing, and TCPCLv4 modeling through a pure-Rust, `unsafe`-free crate with feature-gated profiles. It does not cover live deployment stacks, full production CLA/TLS termination, or orbital dynamics. This project will implement or has implemented:
+`interplanetary-sdk` is a DTN protocol library. The kernel implements BPv7, BPSec defaults, discrete-event simulation, contact-plan routing, and TCPCLv4 through a pure-Rust, `unsafe`-free core with feature-gated profiles. The kernel does not open sockets. The `live-node` feature is the socket runtime: TCPCLv4 on TCP (mutual TLS after the contact header), one bundle per UDP datagram, and LTP red-part blocks over UDP. It does not cover orbital dynamics, durable bundle storage, or a contact scheduler. This project will implement or has implemented:
 
 * Bundle Protocol v7 encoding, decoding, and processing (RFC 9171 and related updates)
 * BPSec default security contexts (HMAC, AES-GCM) and fail-closed protected-service delivery
@@ -25,6 +25,7 @@ The protocol kernel is synchronous and deterministic: each step is `(state, even
 * TCPCLv4 protocol state-machine modeling over virtual streams
 * Experimental TIPTOP IP/QUIC modeling profiles (feature-gated, separately labeled)
 * A Tokio driver (`async-adapter`) that awaits the same synchronous scenario runner
+* A live node (`live-node`) that exchanges bundles over TCP, UDP, and LTP
 
 It does not fork the codec, BPA, or contact-graph router into a second async implementation.
 
@@ -43,10 +44,12 @@ The repository root is a virtual Cargo workspace (`resolver = "3"`). Depend on `
 | `interplanetary-bpa` | Bundle Protocol Agent lifecycle |
 | `interplanetary-cla` | Peer connect scheduler (RFC 9174 reconnect backoff) |
 | `interplanetary-tcpcl` | TCPCLv4 session model over virtual streams |
+| `interplanetary-ltp` | RFC 5326 LTP red-part engine (no sockets) |
 | `interplanetary-sim` | Discrete-event engine and ION contact-plan parser |
 | `interplanetary-tiptop` | Experimental IP/QUIC model |
 | `interplanetary-sdk-sync` | `Scenario`, the synchronous multi-node runner |
 | `interplanetary-sdk-async` | `AsyncSimulation`, Tokio handle over `Scenario` |
+| `interplanetary-node` | Live node: TCP, UDP, and LTP sockets around the kernel |
 | `interplanetary-sdk` | Facade. Feature flags select the crates above |
 
 `sim::Scenario` is the sync runner. With `async-adapter`, `async_adapter::AsyncSimulation` exposes `add_node`, `inject_bundle`, and `run` as async methods. Those methods run the sync kernel on a blocking thread. They do not open sockets.
@@ -94,6 +97,12 @@ See [`crates/interplanetary-sdk/examples/three_node.rs`](crates/interplanetary-s
 
 Other examples live under [`crates/interplanetary-sdk/examples/`](crates/interplanetary-sdk/examples/), including contact failure reroute and bundle expiry demos. Run them all with `make examples`.
 
+The live exchange example needs the `live-node` feature. `make examples` leaves it out because the default feature set does not include that feature.
+
+```bash
+make example EXAMPLE=live_exchange FEATURES=live-node
+```
+
 **Feature profiles**
 
 | Feature | Description |
@@ -104,6 +113,7 @@ Other examples live under [`crates/interplanetary-sdk/examples/`](crates/interpl
 | `tcpclv4-model` | TCPCLv4 protocol state machine over virtual streams |
 | `tiptop-experimental` | Experimental IP/QUIC modeling (unstable) |
 | `async-adapter` | Tokio driver (`async_adapter::AsyncSimulation`) over the sync kernel |
+| `live-node` | Socket runtime (`live::Node`) for TCPCLv4, UDP, and LTP |
 | `test-fixtures` | Deterministic BPSec test helpers (not for production) |
 | `stable-full` | Stable profile: BPv7 + BPSec + sim + TCPCL |
 | `full` | `stable-full` + TIPTOP + `async-adapter` |
@@ -183,6 +193,43 @@ async fn main() -> Result<()> {
 }
 ```
 
+With `live-node`, `live::Node` binds sockets and exchanges real bundles. The kernel still does not. This loopback pair uses plaintext TCP, which refuses any non-loopback address. The guide is [`dev/docs/internal/live-node.md`](dev/docs/internal/live-node.md).
+
+```rust
+use interplanetary_sdk::live::{Node, NodeConfig, Peer, TlsMode, Transport};
+use interplanetary_sdk::types::*;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let listener = Node::bind(NodeConfig {
+        local_node: NodeId::ipn(0, 1),
+        local_eid: EndpointId::ipn(0, 1, 1)?,
+        tcp_listen: Some("127.0.0.1:0".parse().unwrap()),
+        udp_listen: None,
+        ltp_listen: None,
+        ltp_engine_id: 1,
+        ltp_segment_payload: 1400,
+        peers: vec![Peer {
+            node: NodeId::ipn(0, 2),
+            destinations: vec![EndpointId::ipn(0, 2, 1)?],
+            transport: Transport::Tcp {
+                addr: "127.0.0.1:9".parse().unwrap(),
+                dial: false,
+                server_name: None,
+            },
+        }],
+        storage_capacity: Bytes::from_kib(256).unwrap(),
+        tls: TlsMode::InsecurePlaintext,
+        administrative_domain: Some(1),
+    })
+    .await?;
+    let _ = listener.tcp_addr();
+    Ok(())
+}
+```
+
+`send` returns when the bundle is admitted. `recv` waits for local delivery. UDP is one bundle per datagram. LTP is an RFC 5326 red-part block, one segment per datagram, client service id 1.
+
 ### Makefile
 
 Common targets (see `make help`):
@@ -195,8 +242,8 @@ Common targets (see `make help`):
 | `make fmt` / `make fmt-check` | Format / check formatting |
 | `make clippy` | Lint with clippy (`-D warnings`) |
 | `make doc` | Build and open API docs |
-| `make example` | Run one example (`EXAMPLE=…`) |
-| `make examples` | Run all examples |
+| `make example` | Run one example (`EXAMPLE=…`, optional `FEATURES=…`) |
+| `make examples` | Run the default-feature examples |
 | `make clean` | Remove build artifacts |
 
 Pass feature sets with `FEATURES=…`, for example `make test FEATURES=bpsec-default`.
@@ -221,6 +268,7 @@ Normative protocol behavior for this crate follows the IETF DTN RFCs; the NASA a
 Architecture and API contracts are documented under [`dev/docs/`](dev/docs/).
 
 * [Architecture](dev/docs/internal/architecture.md)
+* [Live node](dev/docs/internal/live-node.md)
 * [API contracts](dev/docs/internal/api-contracts.md)
 * [Conformance policy](dev/docs/internal/conformance.md)
 * [Threat model](dev/docs/internal/threat-model.md)

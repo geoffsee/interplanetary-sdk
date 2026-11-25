@@ -39,8 +39,8 @@ clippy: ## Lint with clippy (deny warnings)
 doc: ## Build API documentation
 	$(CARGO) doc -p interplanetary-sdk --no-deps --all-features --open
 
-example: ## Run an example (EXAMPLE=three_node)
-	$(CARGO) run -p interplanetary-sdk --example $(EXAMPLE)
+example: ## Run an example (EXAMPLE=three_node, optional FEATURES=)
+	$(CARGO) run -p interplanetary-sdk --example $(EXAMPLE) $(if $(FEATURES),--features $(FEATURES))
 
 examples: ## Run all examples
 	$(CARGO) run -p interplanetary-sdk --example three_node

@@ -6,11 +6,11 @@
 
 ## Overview
 
-The Interplanetary SDK is a pure-Rust library for building deterministic, in-process simulations of delay-tolerant networks implementing Bundle Protocol version 7 (BPv7) per RFC 9171/9172/9173/9174/9758, plus experimental TIPTOP IP/QUIC modeling.
+The Interplanetary SDK is a pure-Rust library for Bundle Protocol version 7 (BPv7) per RFC 9171/9172/9173/9174/9758, plus experimental TIPTOP IP/QUIC modeling. The protocol kernel is a deterministic in-process step. A separate live runtime, `interplanetary-node`, binds TCP, UDP, and LTP sockets and calls that kernel. See [live-node.md](live-node.md).
 
 ## Design Principles
 
-1. **Deterministic Core**: Given state + input event → bounded transition + explicit effects. No hidden I/O, wall-clock reads, or ambient spawning.
+1. **Deterministic Core**: Given state + input event → bounded transition + explicit effects. The kernel does no hidden I/O, wall-clock reads, or ambient spawning. The live node reads the clock and opens sockets outside that step.
 2. **Synchronous Processing**: Core is sync; optional async adapters drive transitions via channels.
 3. **Explicit Ownership**: No `Arc<Mutex<_>>` in public APIs; clear ownership and borrowing.
 4. **Bounded Resources**: All storage, queues, and computation are bounded and configurable.
@@ -44,21 +44,11 @@ The Interplanetary SDK is a pure-Rust library for building deterministic, in-pro
                    └─────────┘
 ```
 
+The diagram is the kernel. `interplanetary-ltp` sits beside the TCPCL model and owns the RFC 5326 red-part engine, still without sockets. `interplanetary-node` is outside the diagram: it owns sockets, TLS, and the wall clock.
+
 ### Crate Structure
 
-Primary crate: `interplanetary-sdk`
-
-Optional future workspace members (if needed for independent release):
-- `interplanetary-types`: Core types, errors, units
-- `interplanetary-bp`: Bundle Protocol codec and BPA
-- `interplanetary-security`: BPSec implementation
-- `interplanetary-sim`: Simulation engine
-- `interplanetary-tiptop`: Experimental IP/QUIC module (separate stability)
-
-**Decision for W01:** Start with single crate; split only if forced by:
-- Circular dependencies that can't be resolved via traits
-- Experimental module stability requirements
-- Dependency footprint (e.g., crypto only for BPSec users)
+The repository is a virtual workspace. `interplanetary-sdk` is the published facade. Domain crates are `publish = false`. The W01 single-crate start was split once the kernel, the sync runner, and the async runner needed separate compile graphs. See the workspace table in the repository README.
 
 ## Module Boundaries
 
@@ -205,8 +195,17 @@ Optional future workspace members (if needed for independent release):
 **Invariants:**
 - Basic CLA: complete transfer or none
 - TCPCL: follow RFC 9174 state/message rules
-- No real TCP dynamics or socket I/O claimed
+- The TCPCL crate claims no socket I/O. `interplanetary-node` is the socket adapter.
 - Chunking-independent framing
+
+### `ltp` - Licklider Transmission Protocol
+
+**Owns:**
+
+- Red-part segment codec and a single-engine session table
+- Client service id 1 for the Bundle Protocol
+
+**Does not own:** sockets, green data, cancellation, cookies, security extensions, or a retransmission timer. The live node sends one segment per UDP datagram.
 
 ### `tiptop` - Experimental IP/QUIC Module
 
@@ -375,6 +374,10 @@ See `threat-model.md` for full threat analysis.
 - Admission: storage limits enforced
 - Fragmentation + security: per RFC 9172 §5.2
 
+## Live Node
+
+`interplanetary-node` (facade feature `live-node`) is the socket runtime described in [live-node.md](live-node.md). It is not a second bundle agent. One task owns a `BundleAgent`, polls it on a wall-clock `SimInstant`, and moves bytes between that agent and TCP, UDP, or LTP. TLS for TCPCLv4 runs in this crate after the cleartext contact header. The kernel crates do not depend on it.
+
 ## Async Adapter Design (Optional Feature)
 
 When `async-adapter` enabled:
@@ -421,9 +424,12 @@ Future additions may include:
 - Additional EID schemes (register in block registry)
 - Custom extension blocks (implement BlockProcessor)
 - Alternative routing algorithms (implement Router)
-- Real socket adapters (implement TransportStream)
 - Custody extensions (requires selected specification)
-- LTP convergence layer (separate work package)
+
+Shipped outside the kernel, and still short of a full deployment stack:
+
+- `interplanetary-node` binds TCPCLv4, UDP datagrams, and LTP red-part sockets
+- `interplanetary-ltp` is the red-part engine those sockets use
 
 ## Frozen Decisions (W01)
 
@@ -433,7 +439,7 @@ Future additions may include:
 4. Trait-based contracts for store/router/CLA/security
 5. Pure Rust; vetted crypto crates (sha2, hmac, aes-gcm)
 6. Rust 1.83.0 toolchain
-7. No real sockets/TCP/TLS in core; virtual models only
+7. No real sockets/TCP/TLS in the protocol kernel; the live node is a separate crate
 8. One BCB-AES-GCM target per block (erratum 7002 resolution)
 
 ## Next Steps (W02+)

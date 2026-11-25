@@ -19,9 +19,13 @@ TLS session security is **not implemented** in the `tcpclv4-model` profile. This
 - Mutual TLS requirements (§4.4.4.3)
 - TLS policy recommendations (§4.4.5)
 
-**Rationale**: The model profile focuses on core TCPCL data transfer semantics. TLS requirements (RFC 9174 §4.4, 39 obligations) apply to production deployments but are outside the scope of this reference implementation.
+**Rationale**: The `tcpclv4-model` profile focuses on core TCPCL data transfer semantics. TLS requirements (RFC 9174 §4.4) stay out of that profile.
 
-Applications requiring secure transport should use production-grade TCPCL implementations with full TLS support.
+The `live-node` runtime performs the RFC 9174 §4.4.3 handshake: contact headers in the clear, then TLS on the same TCP connection, then `SESS_INIT`. The active entity is the TLS client. Node identity is checked against the peer certificate after `SESS_INIT` (§4.4.4.3), using a URI subjectAltName or the `id-on-bundleEID` otherName. The RFC does not define an ALPN id, and none is sent.
+
+#### RFC 5326 LTP
+
+`interplanetary-ltp` is a red-part subset used by `live-node`: red data, checkpoints, end of red part, end of block, reports, report acknowledgements, and gap retransmission. Green data, cancellation, cookies, security extensions, and a retransmission timer are out of scope. One segment is one UDP datagram. Client service number 1 is the Bundle Protocol. Details and the other live-node limits are in [live-node.md](live-node.md).
 
 ### Coverage Metrics
 

@@ -231,6 +231,25 @@ impl DtnTimeMs {
         self.0
     }
 
+    /// Milliseconds since the DTN epoch for a wall-clock instant.
+    ///
+    /// This converts a value the caller already read. It does not read the clock.
+    /// Instants before 2000-01-01 UTC are rejected. `0` is the DTN epoch itself
+    /// (and the protocol's unknown-time sentinel).
+    pub fn from_system_time(time: std::time::SystemTime) -> Result<Self> {
+        let unix = time
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| Error::invalid_config("System time before Unix epoch"))?;
+        let unix_millis = u64::try_from(unix.as_millis()).map_err(|_| Error::time_overflow())?;
+        let offset_ms = (Self::UNIX_EPOCH_OFFSET_SECS as u64)
+            .checked_mul(1_000)
+            .ok_or_else(Error::time_overflow)?;
+        if unix_millis < offset_ms {
+            return Err(Error::invalid_config("System time before DTN epoch"));
+        }
+        Ok(Self(unix_millis - offset_ms))
+    }
+
     /// Create from Unix timestamp (seconds since 1970-01-01)
     pub fn from_unix_timestamp(unix_secs: i64) -> Result<Self> {
         let dtn_secs = unix_secs
@@ -375,6 +394,33 @@ mod tests {
         // 2024 - 2000 = 24 years = 757382400 seconds (with leap years)
         // But we need exact calc: (2024-2000)*365*24*3600 + leap days
         assert_eq!(dtn.to_unix_timestamp(), unix_ts);
+    }
+
+    #[test]
+    fn test_dtn_time_from_system_time() {
+        use std::time::{Duration, UNIX_EPOCH};
+
+        let epoch = UNIX_EPOCH + Duration::from_secs(946_684_800);
+        assert_eq!(DtnTimeMs::from_system_time(epoch).unwrap().as_millis(), 0);
+
+        let after = epoch + Duration::from_millis(1_500);
+        assert_eq!(
+            DtnTimeMs::from_system_time(after).unwrap().as_millis(),
+            1_500
+        );
+
+        let before = UNIX_EPOCH + Duration::from_secs(1);
+        assert!(matches!(
+            DtnTimeMs::from_system_time(before).unwrap_err().kind(),
+            crate::ErrorKind::InvalidConfig
+        ));
+
+        if let Some(far) = UNIX_EPOCH.checked_add(Duration::from_secs(u64::MAX / 500)) {
+            assert!(matches!(
+                DtnTimeMs::from_system_time(far).unwrap_err().kind(),
+                crate::ErrorKind::TimeOverflow
+            ));
+        }
     }
 
     #[test]
